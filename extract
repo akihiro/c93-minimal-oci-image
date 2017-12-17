@@ -1,0 +1,43 @@
+#!/bin/bash
+
+ldd=ldd
+ldconfig=/sbin/ldconfig
+
+rootfs=`readlink -f "$1"`
+command="$2"
+
+: copy command
+mkdir -p "$rootfs/bin"
+echo copy: "$command"
+cp "$command" "$rootfs/bin"
+
+: parse binary and check dependancy libraries
+files=
+while read line; do
+  [[ $line =~ linux-vdso.so ]] && continue
+  tokens=( $line )
+  case "${#tokens[@]}" in
+  2)
+    [[ ${tokens[0]} =~ linux-vdso.so ]] && continue
+    if [[ ${tokens[0]} =~ ^/ ]]; then
+      libdir=${tokens[0]}
+      libdir="${libdir%/*}"
+      files="$files ${tokens[0]}"
+    fi
+    ;;
+  4) files="$files ${tokens[2]}";;
+  esac
+done <<<"$($ldd "$command")"
+
+: copy libraries
+mkdir -p "$rootfs/$libdir"
+for f in $files; do
+  src="$(readlink -f "$f")"
+  to="$rootfs/$libdir/${src##*/}"
+  if [[ ! -f "$to" ]]; then
+    echo copy: "$src"
+    cp "$f" "$to"
+  else
+    echo already copy: "$src"
+  fi
+done

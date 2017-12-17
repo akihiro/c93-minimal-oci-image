@@ -1,0 +1,5 @@
+#!/bin/bash
+dir="$(readlink -f "${0%/*}")"
+ldso="$dir/lib64/ld-linux-x86-64.so.2"
+prog="${0##*/}"
+exec "$ldso" --library-path "${ldso%/*}" "$dir/bin/$prog" "$@"
